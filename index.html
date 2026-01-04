@@ -173,14 +173,18 @@
 
         // 2. CORONA SHADER (With Noise)
         const coronaVS = `
-            varying vec3 v_normal;
+            varying vec3 vWorldPos;
+            varying vec3 vWorldNormal;
             void main() {
-                v_normal = normalize(normalMatrix * normal);
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                vec4 wp = modelMatrix * vec4(position, 1.0);
+                vWorldPos = wp.xyz;
+                vWorldNormal = normalize(mat3(modelMatrix) * normal);
+                gl_Position = projectionMatrix * viewMatrix * wp;
             }
         `;
         const coronaFS = `
-            varying vec3 v_normal;
+            varying vec3 vWorldPos;
+            varying vec3 vWorldNormal;
             uniform vec3 color0;
             uniform vec3 color1;
             uniform float intensity;
@@ -191,11 +195,11 @@
             }
 
             void main() {
-                vec3 viewDir = normalize(cameraPosition - v_normal); 
-                float viewAngle = dot(v_normal, vec3(0,0,1));
-                float glow = pow(0.6 - viewAngle, 2.5);
-                
-                float noise = random(vec2(0.0, time * 0.1));
+                vec3 V = normalize(cameraPosition - vWorldPos);
+                float ndv = max(dot(normalize(vWorldNormal), V), 0.0);
+                float glow = pow(1.0 - ndv, 2.5);
+
+                float noise = random(vec2(gl_FragCoord.xy * 0.01 + time * 0.1));
                 float smoke = 0.5 + 0.5 * noise;
 
                 vec3 finalColor = mix(color0, color1, glow) + 0.2 * smoke * glow;
@@ -205,34 +209,39 @@
 
         // 3. MAP GRID SHADER (Animated Tech Grid)
         const mapGridVS = `
-            varying vec2 v_uv;
+            varying vec3 vWorldPos;
             void main() {
-                v_uv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                vec4 wp = modelMatrix * vec4(position, 1.0);
+                vWorldPos = wp.xyz;
+                gl_Position = projectionMatrix * viewMatrix * wp;
             }
         `;
         const mapGridFS = `
-            varying vec2 v_uv;
+            varying vec3 vWorldPos;
             uniform vec3 color0;
             uniform vec3 color1;
             uniform float time;
             uniform float pattern_scale;
+            uniform float radius;
 
             void main() {
-                // Création d'une grille procédurale animée
-                vec2 gridUv = v_uv * pattern_scale;
-                gridUv.y += time * 0.1; // Animation verticale
+                vec3 p = normalize(vWorldPos);
+                float lon = atan(p.z, p.x);
+                float lat = asin(p.y);
 
-                float gridX = step(0.95, fract(gridUv.x));
-                float gridY = step(0.95, fract(gridUv.y));
+                vec2 uv;
+                uv.x = (lon + 3.14159265) / (2.0 * 3.14159265);
+                uv.y = (lat + 1.57079633) / 3.14159265;
+
+                vec2 g = uv * pattern_scale;
+                g.y += time;
+
+                float gridX = step(0.98, fract(g.x));
+                float gridY = step(0.98, fract(g.y));
                 float grid = max(gridX, gridY);
 
-                // Mélange couleur
                 vec3 finalColor = mix(color0, color1, grid);
-                
-                // On rend la grille transparente sauf les lignes
-                float alpha = grid * 0.5 + 0.1; 
-                
+                float alpha = grid * 0.6;
                 gl_FragColor = vec4(finalColor, alpha);
             }
         `;
@@ -289,12 +298,14 @@
                 color0: { value: new THREE.Color(0x000000) },
                 color1: { value: new THREE.Color(0x00ffff) },
                 time: { value: 0 },
-                pattern_scale: { value: 20.0 }
+                pattern_scale: { value: 20.0 },
+                radius: { value: CONFIG.radius }
             },
             transparent: true,
             side: THREE.FrontSide,
             blending: THREE.AdditiveBlending,
-            depthWrite: false
+            depthWrite: false,
+            depthTest: true
         });
 
         // ------------------------------------------------------------
@@ -326,65 +337,86 @@
             return new THREE.Vector3(x, y, z);
         }
 
-        function createPrismExtrusion(ring, R, height) {
+        function ringArea2D(ring) {
+            let a = 0;
+            for (let i = 0, n = ring.length; i < n; i++) {
+                const [x1, y1] = ring[i];
+                const [x2, y2] = ring[(i + 1) % n];
+                a += x1 * y2 - x2 * y1;
+            }
+            return a * 0.5;
+        }
+
+        function normalizeWinding(polygonRings) {
+            const outer = polygonRings[0].slice();
+            const holes = polygonRings.slice(1).map(ring => ring.slice());
+
+            if (ringArea2D(outer) < 0) outer.reverse();
+            for (const hole of holes) {
+                if (ringArea2D(hole) > 0) hole.reverse();
+            }
+            return [outer, ...holes];
+        }
+
+        function createPrismExtrusionWithHoles(rings, R, height) {
             const basePoints = [];
-            
-            // 1. Points Base (Sur la sphère)
-            ring.forEach(([lon, lat]) => {
-                basePoints.push(lonLatToVector3(lon, lat, R));
+            const data2D = [];
+            const holeIndices = [];
+
+            let vertCount = 0;
+            rings.forEach((ring, ringIndex) => {
+                if (ringIndex > 0) holeIndices.push(vertCount);
+                ring.forEach(([lon, lat]) => {
+                    basePoints.push(lonLatToVector3(lon, lat, R));
+                    data2D.push(lon, lat);
+                    vertCount++;
+                });
             });
 
-            // 2. Calcul de la normale d'extrusion (Centroïde)
             const centroid = new THREE.Vector3();
-            basePoints.forEach(v => centroid.add(v));
+            for (const v of basePoints) centroid.add(v);
             centroid.divideScalar(basePoints.length);
-            
-            // Direction d'extrusion : Vecteur normal au centre du pays
             const extrudeVector = centroid.clone().normalize().multiplyScalar(height);
 
-            // 3. Points Top = Base + Vecteur (Translation)
             const topPoints = basePoints.map(v => v.clone().add(extrudeVector));
 
-            // 4. Données pour Earcut (Triangulation)
-            const data2D = [];
-            ring.forEach(([lon, lat]) => data2D.push(lon, lat));
-            const indices = earcut(data2D);
+            const indices = earcut(data2D, holeIndices);
 
-            // 5. Construction finale des vertices
             const allVertices = [];
             const allIndices = [];
-            
+
             const n = basePoints.length;
             const offsetBase = 0;
             const offsetTop = n;
 
-            // Ajout Sommets Base
             basePoints.forEach(v => allVertices.push(v.x, v.y, v.z));
-            
-            // Ajout Sommets Top
             topPoints.forEach(v => allVertices.push(v.x, v.y, v.z));
 
-            // --- Faces BASE (Earcut) ---
-            indices.forEach(i => {
-                allIndices.push(offsetBase + i);
-            });
+            for (let i = 0; i < indices.length; i++) {
+                allIndices.push(offsetBase + indices[i]);
+            }
 
-            // --- Faces TOP (Earcut) ---
-            // On inverse l'ordre pour que la normale regarde vers l'extérieur
             for (let i = indices.length - 1; i >= 0; i--) {
                 allIndices.push(offsetTop + indices[i]);
             }
 
-            // --- Faces LATÉRALES (Murs droits) ---
-            for (let i = 0; i < n; i++) {
-                const i0 = offsetBase + i;
-                const i1 = offsetBase + (i + 1) % n;
-                const i2 = offsetTop + i;
-                const i3 = offsetTop + (i + 1) % n;
+            let ringStart = 0;
+            rings.forEach((ring) => {
+                const ringLen = ring.length;
+                for (let i = 0; i < ringLen; i++) {
+                    const i0 = ringStart + i;
+                    const i1 = ringStart + (i + 1) % ringLen;
 
-                allIndices.push(i0, i2, i1);
-                allIndices.push(i1, i2, i3);
-            }
+                    const b0 = offsetBase + i0;
+                    const b1 = offsetBase + i1;
+                    const t0 = offsetTop + i0;
+                    const t1 = offsetTop + i1;
+
+                    allIndices.push(b0, t0, b1);
+                    allIndices.push(b1, t0, t1);
+                }
+                ringStart += ringLen;
+            });
 
             const geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(allVertices, 3));
@@ -403,40 +435,70 @@
         let triCount = 0;
         const statusEl = document.getElementById('status');
         const trisEl = document.getElementById('tris');
+        let geoData = null;
+
+        function clearGroup(group) {
+            while (group.children.length) {
+                const obj = group.children.pop();
+                obj.traverse((node) => {
+                    if (node.geometry) node.geometry.dispose();
+                    if (node.material) {
+                        if (Array.isArray(node.material)) {
+                            node.material.forEach(material => material.dispose());
+                        } else {
+                            node.material.dispose();
+                        }
+                    }
+                });
+            }
+        }
+
+        function buildCountries(data) {
+            clearGroup(countriesGroup);
+            triCount = 0;
+
+            data.features.forEach(feature => {
+                const geom = feature.geometry;
+                const polys = (geom.type === "Polygon") ? [geom.coordinates] : geom.coordinates;
+
+                polys.forEach(polygon => {
+                    const rings = normalizeWinding(polygon);
+                    const geometry = createPrismExtrusionWithHoles(rings, CONFIG.radius, CONFIG.extrudeDepth);
+
+                    const mesh = new THREE.Mesh(geometry, countryMaterial);
+                    countriesGroup.add(mesh);
+                    triCount += geometry.index.count / 3;
+
+                    const gridMesh = new THREE.Mesh(geometry, mapGridMaterial);
+                    gridMesh.renderOrder = 1;
+                    mesh.renderOrder = 0;
+                    mesh.add(gridMesh);
+
+                    const edges = new THREE.EdgesGeometry(geometry);
+                    const line = new THREE.LineSegments(
+                        edges,
+                        new THREE.LineBasicMaterial({
+                            color: 0x00ffff,
+                            transparent: true,
+                            opacity: 0.2,
+                            depthWrite: false
+                        })
+                    );
+                    line.renderOrder = 2;
+                    mesh.add(line);
+                });
+            });
+
+            trisEl.innerText = (triCount / 1000).toFixed(1) + "k";
+        }
 
         fetch(CONFIG.geoJsonUrl)
             .then(res => res.json())
             .then(data => {
                 statusEl.textContent = "Fusion Complete: Prism + Grid + Corona";
                 statusEl.style.color = "#00ffcc";
-
-                data.features.forEach(feature => {
-                    const geom = feature.geometry;
-                    const polys = (geom.type === "Polygon") ? [geom.coordinates] : geom.coordinates;
-
-                    polys.forEach(polygon => {
-                        polygon.forEach(ring => {
-                            // 1. Géométrie Prisme
-                            const geometry = createPrismExtrusion(ring, CONFIG.radius, CONFIG.extrudeDepth);
-                            
-                            // 2. Mesh Principal (Glass/Verre)
-                            const mesh = new THREE.Mesh(geometry, countryMaterial);
-                            countriesGroup.add(mesh);
-                            triCount += geometry.index.count / 3;
-
-                            // 3. Mesh Grille (Superposition Shader)
-                            const gridMesh = new THREE.Mesh(geometry, mapGridMaterial);
-                            mesh.add(gridMesh);
-
-                            // 4. Lignes de bordures
-                            const edges = new THREE.EdgesGeometry(geometry);
-                            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.2 }));
-                            mesh.add(line);
-                        });
-                    });
-                });
-
-                trisEl.innerText = (triCount / 1000).toFixed(1) + "k";
+                geoData = data;
+                buildCountries(geoData);
                 setTimeout(() => { statusEl.style.opacity = 0; }, 3000);
             })
             .catch(err => {
@@ -481,8 +543,9 @@
         // ------------------------------------------------------------
         
         // 1. Grid Speed
+        let gridSpeed = parseFloat(document.getElementById('grid-slider').value);
         document.getElementById('grid-slider').addEventListener('input', (e) => {
-            mapGridMaterial.uniforms.time.value = parseFloat(e.target.value);
+            gridSpeed = parseFloat(e.target.value);
         });
 
         // 2. Corona (Halo)
@@ -505,9 +568,9 @@
 
         // 5. Extrusion Height
         const extrudeSlider = document.getElementById('extrude-slider');
-        extrudeSlider.addEventListener('change', (e) => {
-            // Feedback visuel
-            alert("Pour appliquer la nouvelle hauteur de prismes, rechargez la page.\n(Valeur: " + e.target.value + ")");
+        extrudeSlider.addEventListener('input', (e) => {
+            CONFIG.extrudeDepth = parseFloat(e.target.value);
+            if (geoData) buildCountries(geoData);
         });
 
         // 6. Rotation
@@ -535,9 +598,8 @@
             coronaMaterial.uniforms.time.value = t;
             
             // Animation Grille (continue si slider > 0)
-            const speed = parseFloat(document.getElementById('grid-slider').value);
-            if (speed > 0) {
-                gridTime += speed;
+            if (gridSpeed > 0) {
+                gridTime += gridSpeed;
                 mapGridMaterial.uniforms.time.value = gridTime;
             }
 
