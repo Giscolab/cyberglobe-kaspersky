@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberGlobe - Ultimate Fusion</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Courier New', Courier, monospace; }
+        canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+        
+        #ui-container {
+            position: absolute; top: 20px; left: 20px;
+            color: #00ffcc; pointer-events: none; z-index: 10;
+            text-shadow: 0 0 5px rgba(0, 255, 204, 0.6);
+        }
+        h1 { margin: 0; font-size: 1.3rem; text-transform: uppercase; letter-spacing: 2px; }
+        p { margin: 5px 0; font-size: 0.8rem; opacity: 0.9; color: #aaddff; }
+        .badge { 
+            display: inline-block; padding: 2px 6px; 
+            background: rgba(0, 255, 204, 0.15); 
+            border: 1px solid #00ffcc; 
+            font-size: 0.7rem; margin-left: 10px; border-radius: 3px;
+            box-shadow: 0 0 10px rgba(0,255,204,0.2);
+            font-weight: bold;
+        }
+
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+        #controls {
+            position: absolute; bottom: 30px; left: 30px;
+            background: rgba(0, 5, 10, 0.9);
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            padding: 20px; border-radius: 4px;
+            color: #fff; font-size: 0.85rem; pointer-events: auto;
+            backdrop-filter: blur(10px); max-width: 320px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+        }
+        .control-row { 
+            display: flex; justify-content: space-between; align-items: center; 
+            margin-bottom: 15px; 
+        }
+        label { font-weight: bold; color: #88ccff; font-size: 0.75rem; text-transform: uppercase;}
+        input[type="range"] { 
+            width: 150px; accent-color: #00ffcc; cursor: pointer;
+        }
+        button {
+            width: 100%; padding: 8px;
+            background: rgba(0, 255, 204, 0.1); border: 1px solid #00ffcc;
+            color: #00ffcc; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; font-size: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        button:hover { background: #00ffcc; color: #000; box-shadow: 0 0 20px #00ffcc; letter-spacing: 2px;}
+    </style>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://unpkg.com/earcut@2.2.3/dist/earcut.min.js"></script>
+</head>
+<body>
+
+    <div id="ui-container">
+        <h1>CyberGlobe <span class="badge">ULTIMATE FUSION</span></h1>
+        <p id="status" class="loading">Initializing Glass Engine...</p>
+        <p>FPS: <span id="fps">0</span> | Entities: <span id="tris">0</span></p>
+    </div>
+
+    <div id="controls">
+        <div class="control-row">
+            <label>Extrusion Height</label>
+            <input type="range" id="extrude-slider" min="0.01" max="0.4" step="0.01" value="0.12">
+        </div>
+        <div class="control-row">
+            <label>Glass Opacity</label>
+            <input type="range" id="trans-slider" min="0" max="0.95" step="0.05" value="0.6">
+        </div>
+        <div class="control-row">
+            <label>Land Color (Tone)</label>
+            <input type="range" id="tone-slider" min="0" max="1" step="0.01" value="0.3">
+        </div>
+        <div class="control-row">
+            <label>Grid Speed</label>
+            <input type="range" id="grid-slider" min="0" max="0.02" step="0.001" value="0.002">
+        </div>
+        <div class="control-row">
+            <label>Corona (Halo)</label>
+            <input type="range" id="corona-slider" min="0" max="3" step="0.1" value="1.5">
+        </div>
+        <div class="control-row">
+            <label>Rotation</label>
+            <button id="toggle-rot">Pause / Play</button>
+        </div>
+    </div>
+
+    <script>
+        // ------------------------------------------------------------
+        // CONFIG
+        // ------------------------------------------------------------
+        const CONFIG = {
+            radius: 5,
+            extrudeDepth: 0.05,
+            colorOcean: 0x020205,
+            colorGlow: 0x00ffcc,
+            geoJsonUrl: 'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json',
+            autoRotate: true,
+            rotateSpeed: 0.0005
+        };
+
+        // ------------------------------------------------------------
+        // SCENE
+        // ------------------------------------------------------------
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 16;
+        camera.position.y = 4;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        renderer.setClearColor(0x000000);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enablePan = false;
+        controls.minDistance = 6;
+        controls.maxDistance = 30;
+
+        // ------------------------------------------------------------
+        // LIGHTING (Ambient + Cyber)
+        // ------------------------------------------------------------
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.15);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        sunLight.position.set(10, 10, 10);
+        scene.add(sunLight);
+
+        const blueLight = new THREE.DirectionalLight(0x0088ff, 0.5);
+        blueLight.position.set(-5, 0, 5);
+        scene.add(blueLight);
+
+        const rimLight = new THREE.SpotLight(0x00ffff, 4.0);
+        rimLight.position.set(-15, 5, -10);
+        rimLight.lookAt(0,0,0);
+        scene.add(rimLight);
+
+        // ------------------------------------------------------------
+        // SHADERS (STARS + CORONA + GRID)
+        // ------------------------------------------------------------
+
+        // 1. STARS SHADER
+        const starsVS = `
+            attribute float size;
+            void main() {
+                gl_PointSize = size;
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `;
+        const starsFS = `
+            uniform vec3 color;
+            void main() {
+                vec2 coord = gl_PointCoord - vec2(0.5);
+                if(length(coord) > 0.5) discard;
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
+
+        // 2. CORONA SHADER (With Noise)
+        const coronaVS = `
+            varying vec3 v_normal;
+            void main() {
+                v_normal = normalize(normalMatrix * normal);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+        const coronaFS = `
+            varying vec3 v_normal;
+            uniform vec3 color0;
+            uniform vec3 color1;
+            uniform float intensity;
+            uniform float time;
+
+            float random(vec2 st) {
+                return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+            }
+
+            void main() {
+                vec3 viewDir = normalize(cameraPosition - v_normal); 
+                float viewAngle = dot(v_normal, vec3(0,0,1));
+                float glow = pow(0.6 - viewAngle, 2.5);
+                
+                float noise = random(vec2(0.0, time * 0.1));
+                float smoke = 0.5 + 0.5 * noise;
+
+                vec3 finalColor = mix(color0, color1, glow) + 0.2 * smoke * glow;
+                gl_FragColor = vec4(finalColor, 1.0) * glow * intensity;
+            }
+        `;
+
+        // 3. MAP GRID SHADER (Animated Tech Grid)
+        const mapGridVS = `
+            varying vec2 v_uv;
+            void main() {
+                v_uv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+        const mapGridFS = `
+            varying vec2 v_uv;
+            uniform vec3 color0;
+            uniform vec3 color1;
+            uniform float time;
+            uniform float pattern_scale;
+
+            void main() {
+                // Création d'une grille procédurale animée
+                vec2 gridUv = v_uv * pattern_scale;
+                gridUv.y += time * 0.1; // Animation verticale
+
+                float gridX = step(0.95, fract(gridUv.x));
+                float gridY = step(0.95, fract(gridUv.y));
+                float grid = max(gridX, gridY);
+
+                // Mélange couleur
+                vec3 finalColor = mix(color0, color1, grid);
+                
+                // On rend la grille transparente sauf les lignes
+                float alpha = grid * 0.5 + 0.1; 
+                
+                gl_FragColor = vec4(finalColor, alpha);
+            }
+        `;
+
+        // ------------------------------------------------------------
+        // MATERIALS
+        // ------------------------------------------------------------
+        
+        // Matériau Verre (MeshPhysical pour l'effet Glass Opacity)
+        const countryMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0x00ffcc,
+            metalness: 0.2,
+            roughness: 0.1,
+            transmission: 0.6,     // Contrôlé par slider
+            thickness: 0.2,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.0,
+            side: THREE.DoubleSide,
+            transparent: true,
+            polygonOffset: true,
+            polygonOffsetFactor: 1, // Pousse derrière la grille
+            polygonOffsetUnits: 1
+        });
+
+        // Matériau Océan
+        const oceanMat = new THREE.MeshPhysicalMaterial({
+            color: 0x020408,
+            metalness: 0.5,
+            roughness: 0.4,
+            clearcoat: 0.3,
+        });
+
+        // Matériau Corona
+        const coronaMaterial = new THREE.ShaderMaterial({
+            vertexShader: coronaVS,
+            fragmentShader: coronaFS,
+            uniforms: {
+                color0: { value: new THREE.Color(0x000000) },
+                color1: { value: new THREE.Color(0x00ffff) },
+                intensity: { value: 1.5 },
+                time: { value: 0 }
+            },
+            side: THREE.BackSide,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            depthWrite: false
+        });
+
+        // Matériau Grille (Superposé)
+        const mapGridMaterial = new THREE.ShaderMaterial({
+            vertexShader: mapGridVS,
+            fragmentShader: mapGridFS,
+            uniforms: {
+                color0: { value: new THREE.Color(0x000000) },
+                color1: { value: new THREE.Color(0x00ffff) },
+                time: { value: 0 },
+                pattern_scale: { value: 20.0 }
+            },
+            transparent: true,
+            side: THREE.FrontSide,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        // ------------------------------------------------------------
+        // GLOBE BASE
+        // ------------------------------------------------------------
+        const globeGroup = new THREE.Group();
+        scene.add(globeGroup);
+
+        const ocean = new THREE.Mesh(
+            new THREE.SphereGeometry(CONFIG.radius - 0.02, 64, 64),
+            oceanMat
+        );
+        globeGroup.add(ocean);
+
+        // Atmosphère
+        const atmoGeom = new THREE.SphereGeometry(CONFIG.radius + 0.8, 64, 64);
+        const atmosphere = new THREE.Mesh(atmoGeom, coronaMaterial);
+        scene.add(atmosphere);
+
+        // ------------------------------------------------------------
+        // --- GÉOMÉTRIE : PRISMATIQUE PLANE (VASTURIANO STYLE) ---
+        // ------------------------------------------------------------
+        function lonLatToVector3(lon, lat, radius) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+            const x = -(radius * Math.sin(phi) * Math.cos(theta));
+            const z = (radius * Math.sin(phi) * Math.sin(theta));
+            const y = (radius * Math.cos(phi));
+            return new THREE.Vector3(x, y, z);
+        }
+
+        function createPrismExtrusion(ring, R, height) {
+            const basePoints = [];
+            
+            // 1. Points Base (Sur la sphère)
+            ring.forEach(([lon, lat]) => {
+                basePoints.push(lonLatToVector3(lon, lat, R));
+            });
+
+            // 2. Calcul de la normale d'extrusion (Centroïde)
+            const centroid = new THREE.Vector3();
+            basePoints.forEach(v => centroid.add(v));
+            centroid.divideScalar(basePoints.length);
+            
+            // Direction d'extrusion : Vecteur normal au centre du pays
+            const extrudeVector = centroid.clone().normalize().multiplyScalar(height);
+
+            // 3. Points Top = Base + Vecteur (Translation)
+            const topPoints = basePoints.map(v => v.clone().add(extrudeVector));
+
+            // 4. Données pour Earcut (Triangulation)
+            const data2D = [];
+            ring.forEach(([lon, lat]) => data2D.push(lon, lat));
+            const indices = earcut(data2D);
+
+            // 5. Construction finale des vertices
+            const allVertices = [];
+            const allIndices = [];
+            
+            const n = basePoints.length;
+            const offsetBase = 0;
+            const offsetTop = n;
+
+            // Ajout Sommets Base
+            basePoints.forEach(v => allVertices.push(v.x, v.y, v.z));
+            
+            // Ajout Sommets Top
+            topPoints.forEach(v => allVertices.push(v.x, v.y, v.z));
+
+            // --- Faces BASE (Earcut) ---
+            indices.forEach(i => {
+                allIndices.push(offsetBase + i);
+            });
+
+            // --- Faces TOP (Earcut) ---
+            // On inverse l'ordre pour que la normale regarde vers l'extérieur
+            for (let i = indices.length - 1; i >= 0; i--) {
+                allIndices.push(offsetTop + indices[i]);
+            }
+
+            // --- Faces LATÉRALES (Murs droits) ---
+            for (let i = 0; i < n; i++) {
+                const i0 = offsetBase + i;
+                const i1 = offsetBase + (i + 1) % n;
+                const i2 = offsetTop + i;
+                const i3 = offsetTop + (i + 1) % n;
+
+                allIndices.push(i0, i2, i1);
+                allIndices.push(i1, i2, i3);
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(allVertices, 3));
+            geometry.setIndex(allIndices);
+            geometry.computeVertexNormals();
+
+            return geometry;
+        }
+
+        // ------------------------------------------------------------
+        // CHARGEMENT DONNÉES + FUSION LAYERS
+        // ------------------------------------------------------------
+        const countriesGroup = new THREE.Group();
+        globeGroup.add(countriesGroup);
+        
+        let triCount = 0;
+        const statusEl = document.getElementById('status');
+        const trisEl = document.getElementById('tris');
+
+        fetch(CONFIG.geoJsonUrl)
+            .then(res => res.json())
+            .then(data => {
+                statusEl.textContent = "Fusion Complete: Prism + Grid + Corona";
+                statusEl.style.color = "#00ffcc";
+
+                data.features.forEach(feature => {
+                    const geom = feature.geometry;
+                    const polys = (geom.type === "Polygon") ? [geom.coordinates] : geom.coordinates;
+
+                    polys.forEach(polygon => {
+                        polygon.forEach(ring => {
+                            // 1. Géométrie Prisme
+                            const geometry = createPrismExtrusion(ring, CONFIG.radius, CONFIG.extrudeDepth);
+                            
+                            // 2. Mesh Principal (Glass/Verre)
+                            const mesh = new THREE.Mesh(geometry, countryMaterial);
+                            countriesGroup.add(mesh);
+                            triCount += geometry.index.count / 3;
+
+                            // 3. Mesh Grille (Superposition Shader)
+                            const gridMesh = new THREE.Mesh(geometry, mapGridMaterial);
+                            mesh.add(gridMesh);
+
+                            // 4. Lignes de bordures
+                            const edges = new THREE.EdgesGeometry(geometry);
+                            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.2 }));
+                            mesh.add(line);
+                        });
+                    });
+                });
+
+                trisEl.innerText = (triCount / 1000).toFixed(1) + "k";
+                setTimeout(() => { statusEl.style.opacity = 0; }, 3000);
+            })
+            .catch(err => {
+                console.error(err);
+                statusEl.textContent = "Error Loading Data";
+                statusEl.style.color = "red";
+            });
+
+        // ------------------------------------------------------------
+        // STARFIELD (GLSL)
+        // ------------------------------------------------------------
+        function createStarsGLSL() {
+            const starsGeom = new THREE.BufferGeometry();
+            const count = 3000;
+            const pos = new Float32Array(count * 3);
+            const sizes = new Float32Array(count);
+            for(let i=0; i<count; i++) {
+                const r = 50 + Math.random() * 50;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                pos[i*3] = r * Math.sin(phi) * Math.cos(theta);
+                pos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+                pos[i*3+2] = r * Math.cos(phi);
+                sizes[i] = 1.0 + Math.random() * 2.0;
+            }
+            starsGeom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            starsGeom.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            
+            const starsMat = new THREE.ShaderMaterial({
+                vertexShader: starsVS,
+                fragmentShader: starsFS,
+                uniforms: { color: { value: new THREE.Color(0xffffff) } },
+                transparent: true
+            });
+
+            return new THREE.Points(starsGeom, starsMat);
+        }
+        scene.add(createStarsGLSL());
+
+        // ------------------------------------------------------------
+        // UI & CONTROLS (TOUS LES SLIDERS)
+        // ------------------------------------------------------------
+        
+        // 1. Grid Speed
+        document.getElementById('grid-slider').addEventListener('input', (e) => {
+            mapGridMaterial.uniforms.time.value = parseFloat(e.target.value);
+        });
+
+        // 2. Corona (Halo)
+        document.getElementById('corona-slider').addEventListener('input', (e) => {
+            coronaMaterial.uniforms.intensity.value = parseFloat(e.target.value);
+        });
+
+        // 3. Land Color (Tone) - Mix entre Sombre et Cyan
+        document.getElementById('tone-slider').addEventListener('input', (e) => {
+            const t = parseFloat(e.target.value);
+            const colDark = new THREE.Color(0x001133);
+            const colLight = new THREE.Color(0x00ffcc);
+            countryMaterial.color.copy(colDark).lerp(colLight, t);
+        });
+
+        // 4. Glass Opacity (Transmission)
+        document.getElementById('trans-slider').addEventListener('input', (e) => {
+            countryMaterial.transmission = parseFloat(e.target.value);
+        });
+
+        // 5. Extrusion Height
+        const extrudeSlider = document.getElementById('extrude-slider');
+        extrudeSlider.addEventListener('change', (e) => {
+            // Feedback visuel
+            alert("Pour appliquer la nouvelle hauteur de prismes, rechargez la page.\n(Valeur: " + e.target.value + ")");
+        });
+
+        // 6. Rotation
+        document.getElementById('toggle-rot').addEventListener('click', (e) => {
+            CONFIG.autoRotate = !CONFIG.autoRotate;
+            e.target.innerText = CONFIG.autoRotate ? "Pause / Play" : "Pause / Play";
+        });
+
+        // ------------------------------------------------------------
+        // LOOP
+        // ------------------------------------------------------------
+        const fpsEl = document.getElementById('fps');
+        let lastTime = 0;
+        let gridTime = 0;
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            
+            const dt = time - lastTime;
+            lastTime = time;
+            if(Math.random()>0.95) fpsEl.innerText = Math.round(1000/dt);
+
+            // Update Uniforms Temps
+            const t = time * 0.001;
+            coronaMaterial.uniforms.time.value = t;
+            
+            // Animation Grille (continue si slider > 0)
+            const speed = parseFloat(document.getElementById('grid-slider').value);
+            if (speed > 0) {
+                gridTime += speed;
+                mapGridMaterial.uniforms.time.value = gridTime;
+            }
+
+            controls.update();
+
+            if (CONFIG.autoRotate) {
+                globeGroup.rotation.y += CONFIG.rotateSpeed;
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate(0);
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
