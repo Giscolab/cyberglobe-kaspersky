@@ -1,28 +1,98 @@
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
-        #canvas-container { width: 100vw; height: 100vh; }
-        #ui-container {
-            position: absolute; top: 10px; right: 10px; width: 280px;
-            background: rgba(0, 0, 0, 0.8); padding: 15px; border-radius: 8px;
-            color: #fff; border: 1px solid #333; pointer-events: auto;
+
+        /* ------------------------------------------------------------
+           CSS
+        ------------------------------------------------------------ */
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        /* UI OVERLAY */
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 320px;
+            background: rgba(10, 10, 15, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            color: #ccc;
+            z-index: 10;
+            font-size: 12px;
+            box-shadow: 0 0 25px rgba(0,0,0,0.9);
+            max-height: 90vh;
+            overflow-y: auto;
         }
-        .group { margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .group:last-child { border-bottom: none; }
-        .group h3 { margin: 0 0 10px 0; font-size: 14px; color: #00ffcc; text-transform: uppercase; letter-spacing: 1px; }
-        .control { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
-        .control label { flex: 1; }
-        .control input[type="range"] { flex: 1; margin: 0 10px; cursor: pointer; }
-        .control input[type="color"] { border: none; width: 20px; height: 20px; cursor: pointer; background: none; }
-        .val-display { width: 35px; text-align: right; font-family: monospace; color: #888; }
+
+        h2 { 
+            margin: 15px 0 10px 0; 
+            color: #00ffcc; 
+            text-transform: uppercase; 
+            letter-spacing: 1.5px; 
+            font-size: 12px; 
+            border-bottom: 1px solid #333; 
+            padding-bottom: 5px; 
+        }
+
+        .control-group { margin-bottom: 12px; }
+        .control-group label { display: flex; justify-content: space-between; margin-bottom: 4px; color: #aaa; font-size: 11px; }
+        
+        /* Sliders */
+        .control-group input[type="range"] { width: 100%; accent-color: #00ffcc; background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; cursor: pointer; }
+        
+        /* Colors */
+        .control-group input[type="color"] { width: 100%; height: 25px; border: none; background: none; cursor: pointer; border-radius: 4px; }
+        
+        /* Select Dropdowns */
+        .control-group select {
+            width: 100%;
+            background: #1a1a1a;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 5px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .control-group select:focus { border-color: #00ffcc; outline: none; }
+
+        .value-display { color: #00ffcc; font-weight: bold; font-family: monospace; }
+        .hint { font-style: italic; color: #555; margin-top: 5px; font-size: 10px; text-align: center; border-top: 1px dashed #333; padding-top: 10px; }
+
+        /* LABEL PAYS */
         #country-label {
-            position: absolute; display: none; padding: 5px 10px;
-            background: rgba(0, 0, 0, 0.8); border: 1px solid #00ffcc; color: #00ffcc;
-            font-size: 12px; pointer-events: none; border-radius: 4px;
-            transform: translate(-50%, -150%); white-space: nowrap;
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #00ffcc;
+            color: #00ffcc;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            pointer-events: none;
+            display: none;
+            z-index: 20;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transform: translate(-50%, -150%);
+            white-space: nowrap;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
         }
+
         #fps {
-            position: absolute; bottom: 10px; right: 10px; color: #444;
-            font-family: monospace; font-size: 10px; pointer-events: none;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #444;
+            font-family: monospace;
+            z-index: 5;
+            pointer-events: none;
         }
-        .instructions {
-            font-size: 11px; color: #888; margin-top: 10px; line-height: 1.4;
-        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00ffcc; }
+    

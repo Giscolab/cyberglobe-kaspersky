@@ -23,115 +23,200 @@
 <body>
 
     <div id="canvas-container"></div>
-    <div id="country-label">Pays</div>
-    <div id="fps">60 FPS</div>
+    <!-- LABEL -->
+    <div id="country-label">Country Name</div>
+    <div id="fps">FPS: 60</div>
 
-    <div id="ui-container">
-        <div class="group">
-            <h3>Géométrie</h3>
-            <div class="control">
-                <label>Extrusion</label>
-                <input type="range" id="geo-extrude" min="0" max="1" step="0.01" value="0.1">
-                <span class="val-display" id="val-geo-extrude">0.1</span>
-            </div>
-            <div class="control">
-                <label>Rayon</label>
-                <input type="range" id="geo-radius" min="2" max="5" step="0.1" value="3.4">
-                <span class="val-display" id="val-geo-radius">3.4</span>
-            </div>
-            <div class="control">
-                <label>Atmosphère</label>
-                <input type="range" id="geo-atmo-rad" min="0" max="2" step="0.1" value="0.8">
-                <span class="val-display" id="val-geo-atmo-rad">0.8</span>
-            </div>
+    <!-- UI -->
+    <div id="ui-panel">
+        
+        <h2>⚡ Préréglages Rapides</h2>
+        
+        <div class="control-group">
+            <label>Style Pays (Matériau)</label>
+            <select id="preset-country">
+                <option value="cyber">Cyber Glass (Défaut)</option>
+                <option value="holo">Hologramme</option>
+                <option value="matte">Matte Plastique</option>
+                <option value="metal">Chrome Métal</option>
+                <option value="neon">Neon Glow</option>
+            </select>
         </div>
 
-        <div class="group">
-            <h3>Matériau Verre</h3>
-            <div class="control">
-                <label>Transmission</label>
-                <input type="range" id="glass-trans" min="0" max="1" step="0.01" value="0.0">
-                <span class="val-display" id="val-glass-trans">0.0</span>
-            </div>
-            <div class="control">
-                <label>Roughness</label>
-                <input type="range" id="glass-rough" min="0" max="1" step="0.01" value="0.0">
-                <span class="val-display" id="val-glass-rough">0.0</span>
-            </div>
-            <div class="control">
-                <label>Metalness</label>
-                <input type="range" id="glass-metal" min="0" max="1" step="0.01" value="0.0">
-                <span class="val-display" id="val-glass-metal">0.0</span>
-            </div>
-            <div class="control">
-                <label>Clearcoat</label>
-                <input type="range" id="glass-clear" min="0" max="1" step="0.01" value="1.0">
-                <span class="val-display" id="val-glass-clear">1.0</span>
-            </div>
+        <div class="control-group">
+            <label>Style Océan</label>
+            <select id="preset-ocean">
+                <option value="deep">Deep Space (Défaut)</option>
+                <option value="cyan">Cyan Tech</option>
+                <option value="obsidian">Obsidian Noir</option>
+                <option value="liquid">Liquid Metal</option>
+            </select>
         </div>
 
-        <div class="group">
-            <h3>Atmosphère (Corona)</h3>
-            <div class="control">
-                <label>Intensité</label>
-                <input type="range" id="corona-int" min="0" max="2" step="0.1" value="0.6">
-                <span class="val-display" id="val-corona-int">0.6</span>
-            </div>
-            <div class="control">
-                <label>Couleur</label>
-                <input type="color" id="corona-col1" value="#8d0c0c">
-            </div>
+        <div class="control-group">
+            <label>Ambiance Lumière</label>
+            <select id="preset-light">
+                <option value="default">Default (Violet/Blue)</option>
+                <option value="sunset">Sunset (Orange/Red)</option>
+                <option value="night">Night (Blanc froid)</option>
+                <option value="cyberpunk">Cyberpunk (Rose/Cyan)</option>
+            </select>
         </div>
 
-        <div class="group">
-            <h3>Lumière</h3>
-            <div class="control">
-                <label>Sun Int.</label>
-                <input type="range" id="light-sun-int" min="0" max="10" step="0.1" value="3.0">
-                <span class="val-display" id="val-light-sun-int">3.0</span>
-            </div>
-            <div class="control">
-                <label>Sun Col.</label>
-                <input type="color" id="light-sun-col" value="#831f84">
-            </div>
-            <div class="control">
-                <label>Rim Int.</label>
-                <input type="range" id="light-rim-int" min="0" max="20" step="1" value="10.0">
-                <span class="val-display" id="val-light-rim-int">10.0</span>
-            </div>
-            <div class="control">
-                <label>Rim Col.</label>
-                <input type="color" id="light-rim-col" value="#000000">
-            </div>
-            <div class="control">
-                <label>Amb Int.</label>
-                <input type="range" id="light-amb-int" min="0" max="3" step="0.1" value="1.0">
-                <span class="val-display" id="val-light-amb-int">1.0</span>
-            </div>
+        <h2>🌍 Géométrie</h2>
+        
+        <div class="control-group">
+            <label>Extrusion (Relief) <span id="val-geo-extrude" class="value-display">0.10</span></label>
+            <input type="range" id="geo-extrude" min="0" max="1.5" step="0.01" value="0.10">
         </div>
 
-        <div class="group">
-            <h3>Env & Cam</h3>
-            <div class="control">
-                <label>Fog</label>
-                <input type="range" id="env-fog" min="0" max="0.05" step="0.001" value="0.0">
-                <span class="val-display" id="val-env-fog">0.0</span>
-            </div>
-            <div class="control">
-                <label>Rotation</label>
-                <input type="range" id="env-rot" min="0" max="0.005" step="0.0001" value="0.0005">
-                <span class="val-display" id="val-env-rot">0.0005</span>
-            </div>
-            <div class="control">
-                <label>FOV</label>
-                <input type="range" id="cam-fov" min="20" max="90" step="1" value="45">
-                <span class="val-display" id="val-cam-fov">45</span>
-            </div>
+        <div class="control-group">
+            <label>Rayon Globe <span id="val-geo-radius" class="value-display">3.40</span></label>
+            <input type="range" id="geo-radius" min="2" max="10" step="0.1" value="3.40">
         </div>
 
-        <div class="instructions">
-            [B] Toggle Frontières Internes<br>
-            [S] Toggle Frontières Partagées Uniquement
+        <div class="control-group">
+            <label>Détail (Segments) <span id="val-geo-seg" class="value-display">64</span></label>
+            <select id="geo-seg">
+                <option value="32">Faible (32)</option>
+                <option value="64" selected>Normal (64)</option>
+                <option value="128">Haute (128)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Rayon Atmosphère <span id="val-geo-atmo-rad" class="value-display">0.80</span></label>
+            <input type="range" id="geo-atmo-rad" min="0" max="2.0" step="0.1" value="0.80">
+        </div>
+
+        <h2>🏙️ Matériaux Pays</h2>
+        
+        <div class="control-group">
+            <label>Couleur Base</label>
+            <input type="color" id="glass-col" value="#00ffcc">
+        </div>
+
+        <div class="control-group">
+            <label>Transmission (Verre) <span id="val-glass-trans" class="value-display">0.0</span></label>
+            <input type="range" id="glass-trans" min="0" max="1" step="0.05" value="0.0">
+        </div>
+
+        <div class="control-group">
+            <label>Rugosité <span id="val-glass-rough" class="value-display">0.0</span></label>
+            <input type="range" id="glass-rough" min="0" max="1" step="0.05" value="0.0">
+        </div>
+
+        <div class="control-group">
+            <label>Métal <span id="val-glass-metal" class="value-display">0.0</span></label>
+            <input type="range" id="glass-metal" min="0" max="1" step="0.05" value="0.0">
+        </div>
+
+        <div class="control-group">
+            <label>Vernis (Clearcoat) <span id="val-glass-clear" class="value-display">1.0</span></label>
+            <input type="range" id="glass-clear" min="0" max="1" step="0.05" value="1.0">
+        </div>
+
+        <h2>🌊 Océan (Eau)</h2>
+        
+        <div class="control-group">
+            <label>Couleur Eau</label>
+            <input type="color" id="ocean-col" value="#020408">
+        </div>
+
+        <div class="control-group">
+            <label>Métal Eau <span id="val-ocean-metal" class="value-display">0.5</span></label>
+            <input type="range" id="ocean-metal" min="0" max="1" step="0.05" value="0.5">
+        </div>
+
+        <div class="control-group">
+            <label>Rugosité Eau <span id="val-ocean-rough" class="value-display">0.4</span></label>
+            <input type="range" id="ocean-rough" min="0" max="1" step="0.05" value="0.4">
+        </div>
+
+        <div class="control-group">
+            <label>Vernis Eau <span id="val-ocean-clear" class="value-display">0.3</span></label>
+            <input type="range" id="ocean-clear" min="0" max="1" step="0.05" value="0.3">
+        </div>
+
+        <h2>✨ Effets & Atmosphère</h2>
+
+        <div class="control-group">
+            <label>Couleur Corona</label>
+            <input type="color" id="corona-col1" value="#8d0c0c">
+        </div>
+
+        <div class="control-group">
+            <label>Intensité Corona <span id="val-corona-int" class="value-display">0.60</span></label>
+            <input type="range" id="corona-int" min="0" max="2" step="0.1" value="0.60">
+        </div>
+
+        <div class="control-group">
+            <label>Couleur Étoiles</label>
+            <input type="color" id="star-col" value="#ffffff">
+        </div>
+
+        <div class="control-group">
+            <label>Taille Étoiles <span id="val-star-size" class="value-display">1.0</span></label>
+            <input type="range" id="star-size" min="0.5" max="3.0" step="0.1" value="1.0">
+        </div>
+
+        <h2>💡 Lumière Avancée</h2>
+
+        <div class="control-group">
+            <label>Couleur Soleil</label>
+            <input type="color" id="light-sun-col" value="#831f84">
+        </div>
+
+        <div class="control-group">
+            <label>Intensité Soleil <span id="val-light-sun-int" class="value-display">3.0</span></label>
+            <input type="range" id="light-sun-int" min="0" max="10" step="0.1" value="3.0">
+        </div>
+
+        <div class="control-group">
+            <label>Position Soleil X <span id="val-light-sun-x" class="value-display">10</span></label>
+            <input type="range" id="light-sun-x" min="-50" max="50" step="1" value="10">
+        </div>
+        
+        <div class="control-group">
+            <label>Position Soleil Y <span id="val-light-sun-y" class="value-display">10</span></label>
+            <input type="range" id="light-sun-y" min="-50" max="50" step="1" value="10">
+        </div>
+
+        <div class="control-group">
+            <label>Contre-Jour (Rim) Int. <span id="val-light-rim-int" class="value-display">10.0</span></label>
+            <input type="range" id="light-rim-int" min="0" max="20" step="0.5" value="10.0">
+        </div>
+
+        <div class="control-group">
+            <label>Ambiante <span id="val-light-amb-int" class="value-display">1.0</span></label>
+            <input type="range" id="light-amb-int" min="0" max="5" step="0.1" value="1.0">
+        </div>
+
+        <h2>🎨 Environnement</h2>
+
+        <div class="control-group">
+            <label>Couleur Fond</label>
+            <input type="color" id="env-bg-col" value="#000000">
+        </div>
+
+        <div class="control-group">
+            <label>Densité Brouillard <span id="val-env-fog" class="value-display">0.00</span></label>
+            <input type="range" id="env-fog" min="0" max="0.05" step="0.001" value="0.0">
+        </div>
+
+        <div class="control-group">
+            <label>Vitesse Rotation <span id="val-env-rot" class="value-display">0.50</span></label>
+            <input type="range" id="env-rot" min="0" max="2" step="0.1" value="0.5">
+        </div>
+
+        <div class="control-group">
+            <label>FOV Caméra <span id="val-cam-fov" class="value-display">45</span></label>
+            <input type="range" id="cam-fov" min="20" max="100" step="1" value="45">
+        </div>
+
+        <div class="hint">
+            [B] : Frontières Internes<br>
+            [S] : Frontières Partagées
         </div>
     </div>
 
