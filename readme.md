@@ -2,6 +2,14 @@
 
 **Visualisation 3D interactive de la Terre en WebGL/Three.js** avec architecture à géométrie unifiée.
 
+---
+
+![Capture visuelle](./capture.png)
+
+> *État visuel du projet au 2026-01-07 — rendu atmosphérique, extrusion, et frontières précises.*
+
+---
+
 ## 📖 Introduction
 
 CyberGlobe est un projet de visualisation géographique 3D qui résout un problème fondamental : **séparer strictement la représentation visuelle des frontières de la géométrie volumique**.
@@ -34,12 +42,13 @@ Dans les visualisations 3D classiques, les frontières sont souvent dérivées d
 - **Rendu** : Décalage radial pour éviter le Z-fighting
 
 ### 3. Rendu & Éclairage
-- **Atmosphère** : Shader simple (effet corona)
-- **Éclairage minimaliste** :
-  - Lumière directionnelle (soleil)
-  - Rim light (contour)
-  - Lumière ambiante
-- **Philosophie** : Lisibilité avant effets décoratifs
+- **Atmosphère** : Shader personnalisé (corona animé avec noise GLSL)
+- **Éclairage** :
+  - Directionnelle (Soleil)
+  - Rim light (halo latéral)
+  - Ambiante (lumière douce uniforme)
+- **Fonds étoilé** : Shader + particules aléatoires
+- **Philosophie** : Lisibilité avant fioritures décoratives
 
 ## 🎮 Interface (Cockpit)
 
@@ -50,7 +59,7 @@ Interface paramétrique exposant exclusivement les réglages moteur.
 - Rayon du globe
 - Rayon de l'atmosphère
 
-### Matériau (Verre)
+### Matériau (Verre/Pays)
 - Transmission
 - Rugosité
 - Métallicité
@@ -58,17 +67,24 @@ Interface paramétrique exposant exclusivement les réglages moteur.
 
 ### Atmosphère
 - Intensité
-- Couleur
+- Couleurs (dégradé)
 
 ### Éclairage
-- Intensité/Couleur (soleil)
-- Intensité/Couleur (rim light)
-- Intensité ambiante
+- Intensité / Couleur (soleil)
+- Intensité / Couleur (rim light)
+- Lumière ambiante
+- Position de la lumière
 
 ### Environnement
 - Densité du brouillard
-- Vitesse de rotation
+- Vitesse de rotation automatique
 - Champ de vision (FOV)
+- Couleur d’arrière-plan
+
+### Presets
+- Styles de matériau (neon, holo, matte…)
+- Thèmes océans (obsidian, deep…)
+- Environnements lumineux (cyberpunk, sunset…)
 
 **Synchronisation** : Les valeurs UI sont liées à l'état interne au chargement.
 
@@ -93,12 +109,13 @@ Interface paramétrique exposant exclusivement les réglages moteur.
 - Découplage strict géométrie/rendu
 - Priorité à la lisibilité et cohérence
 - Reconstruction dynamique paramétrique
+- Halo atmosphérique avec shader GLSL custom
 
 ### ❌ Ce qui n'est pas fait
 - Wireframe basé sur les arêtes de triangles
 - Frontières dérivées de la triangulation
 - Effets décoratifs non maîtrisés
-- Optimisations prématurées (LOD, batching)
+- Optimisations avancées (LOD, instancing, batching)
 
 ## 📈 État du Projet
 
@@ -107,7 +124,7 @@ Interface paramétrique exposant exclusivement les réglages moteur.
 | Architecture | ✅ Stabilisée |
 | Découplage géométrie/frontières | ✅ Implémenté |
 | Reconstruction dynamique | ✅ Fonctionnelle |
-| Optimisations (LOD, batching) | ⏳ Planifié |
+| Stack visuelle shaderisée | ✅ Expérimentale |
 | Produit final | ⏳ Conceptuel |
 
 **Note** : Ce dépôt fige un **état sain et cohérent**, servant de base solide pour des itérations futures.
@@ -134,18 +151,3 @@ open index.html
 # ou
 xdg-open index.html
 # ou simplement double-cliquer sur index.html
-```
-
-**Prérequis** : Navigateur supportant WebGL 2.0 et les modules ES6.
-
-## 📄 Licence
-
-[À définir selon la licence choisie]
-
-## 🤝 Contribution
-
-Ce projet est actuellement dans un état figé pour référence architecturale. Les contributions futures seront envisagées dans le cadre d'itérations ultérieures.
-
----
-
-*CyberGlobe — Pour une visualisation géographique 3D précise et cohérente.*
